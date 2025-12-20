@@ -9,7 +9,9 @@ const LandingPage = () => {
   const [session, setSession] = useState(null);
   const [authMode, setAuthMode] = useState('landing'); // 'landing', 'login', 'signup', 'dashboard'
   const [email, setAuthEmail] = useState('');
-  const [password, setAuthPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [otp, setOtp] = useState('');
+  const [showOtpInput, setShowOtpInput] = useState(false);
   const [links, setLinks] = useState(['', '', '']);
   const [generatedEmails, setGeneratedEmails] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -25,6 +27,7 @@ const LandingPage = () => {
   const [analysis, setAnalysis] = useState(null);
   const [showExitIntent, setShowExitIntent] = useState(false);
   const [hasShownExit, setHasShownExit] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   React.useEffect(() => {
     const handleMouseLeave = (e) => {
@@ -83,6 +86,12 @@ const LandingPage = () => {
     const { data, error: fetchError } = await query;
     if (fetchError) console.error(fetchError);
     else setEmails(data || []);
+    setRefreshing(false);
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchEmails();
   };
 
   React.useEffect(() => {
@@ -91,21 +100,68 @@ const LandingPage = () => {
     }
   }, [selectedComp, session, view]);
 
-  const handleAuth = async (type) => {
+  const handleSendOtp = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setError("Please enter your email.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const { error } = type === 'signup'
-        ? await supabase.auth.signUp({ email: email, password })
-        : await supabase.auth.signInWithPassword({ email: email, password });
-
+      const { error } = await supabase.auth.signInWithOtp({
+        email: cleanEmail,
+        options: {
+          data: { full_name: fullName.trim() }
+        }
+      });
       if (error) throw error;
-      if (type === 'signup') alert("Check your email for the confirmation link!");
+      setShowOtpInput(true);
+      alert("Verification code sent! Please check your inbox (and spam).");
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVerifyOtp = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanOtp = otp.trim();
+
+    if (!cleanOtp || cleanOtp.length < 6) {
+      setError("Please enter a valid code.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    // Expert Fix: Try multiple verification types in sequence
+    const typesToTry = authMode === 'signup' ? ['signup', 'magiclink', 'email'] : ['magiclink', 'signup', 'email'];
+    let lastError = null;
+
+    for (const type of typesToTry) {
+      try {
+        const { error } = await supabase.auth.verifyOtp({
+          email: cleanEmail,
+          token: cleanOtp,
+          type: type
+        });
+
+        if (!error) {
+          // Success!
+          return;
+        }
+        lastError = error;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    // If we reach here, all types failed
+    setError(lastError?.message || "Invalid or expired code. Please try again.");
+    setLoading(false);
   };
 
   const generateSpyEmail = (url) => {
@@ -204,24 +260,58 @@ const LandingPage = () => {
                 <Lock className="w-8 h-8 text-blue-500" />
               </div>
               <h2 className="text-3xl font-bold tracking-tight">{authMode === 'login' ? 'Welcome Back' : 'Create Account'}</h2>
-              <p className="text-gray-400 mt-2 text-sm">Secure your spy dashboard.</p>
+              <p className="text-gray-400 mt-2 text-sm">
+                {showOtpInput ? 'Enter the code sent to your email.' : 'Secure your spy dashboard.'}
+              </p>
             </div>
             <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1 mb-1 block">Email Address</label>
-                <input type="email" value={email} onChange={(e) => setAuthEmail(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-2xl px-5 py-4 focus:border-blue-500/50 focus:outline-none transition-all" />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1 mb-1 block">Password</label>
-                <input type="password" value={password} onChange={(e) => setAuthPassword(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-2xl px-5 py-4 focus:border-blue-500/50 focus:outline-none transition-all" />
-              </div>
+              {!showOtpInput ? (
+                <>
+                  {authMode === 'signup' && (
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1 mb-1 block">Full Name</label>
+                      <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="John Doe" className="w-full bg-black/50 border border-white/10 rounded-2xl px-5 py-4 focus:border-blue-500/50 focus:outline-none transition-all" />
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1 mb-1 block">Email Address</label>
+                    <input type="email" value={email} onChange={(e) => setAuthEmail(e.target.value)} placeholder="you@example.com" className="w-full bg-black/50 border border-white/10 rounded-2xl px-5 py-4 focus:border-blue-500/50 focus:outline-none transition-all" />
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1 mb-1 block">Verification Code</label>
+                  <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="00000000" className="w-full bg-black/50 border border-white/10 rounded-2xl px-5 py-4 focus:border-blue-500/50 focus:outline-none transition-all" maxLength={10} />
+                </div>
+              )}
               {error && <p className="text-red-400 text-xs text-center">{error}</p>}
-              <button onClick={() => handleAuth(authMode)} disabled={loading} className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-800 text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98]">
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (authMode === 'login' ? 'Login to Dashboard' : 'Start Spying Free')}
+              <button
+                onClick={showOtpInput ? handleVerifyOtp : handleSendOtp}
+                disabled={loading}
+                className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-800 text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+              >
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (showOtpInput ? 'Verify Code' : (authMode === 'login' ? 'Send Login Code' : 'Send Activation Code'))}
               </button>
-              <button onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} className="w-full text-gray-500 hover:text-white text-sm mt-4">
-                {authMode === 'login' ? 'Need an account? Sign up' : 'Already have an account? Log in'}
-              </button>
+
+              {showOtpInput && (
+                <div className="flex flex-col gap-2 mt-2">
+                  <button onClick={handleSendOtp} className="w-full text-blue-400 hover:text-blue-300 text-sm">
+                    Resend Code
+                  </button>
+                  <button onClick={() => setShowOtpInput(false)} className="w-full text-gray-500 hover:text-white text-sm">
+                    Edit Email
+                  </button>
+                </div>
+              )}
+
+              {!showOtpInput && (
+                <button onClick={() => {
+                  setAuthMode(authMode === 'login' ? 'signup' : 'login');
+                  setError(null);
+                }} className="w-full text-gray-500 hover:text-white text-sm mt-4">
+                  {authMode === 'login' ? 'Need an account? Sign up' : 'Already have an account? Log in'}
+                </button>
+              )}
               <button onClick={() => setAuthMode('landing')} className="w-full text-gray-700 hover:text-gray-500 text-xs mt-2 underline">Back to Home</button>
             </div>
           </motion.div>
@@ -280,10 +370,11 @@ const LandingPage = () => {
                       ))}
                     </select>
                     <button
-                      onClick={fetchEmails}
-                      className="p-2 hover:bg-white/5 rounded-full text-gray-400 border border-white/5 transition-all"
+                      onClick={handleRefresh}
+                      disabled={refreshing}
+                      className={`p-2 hover:bg-white/5 rounded-full text-gray-400 border border-white/5 transition-all ${refreshing ? 'opacity-50' : ''}`}
                     >
-                      <RefreshCcw className="w-4 h-4" />
+                      <RefreshCcw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                     </button>
                   </div>
                 </div>
@@ -525,14 +616,32 @@ const LandingPage = () => {
                       />
                     </div>
                   ))}
-                  {error && <p className="text-red-400 text-xs mb-4">{error}</p>}
-                  <button
-                    onClick={handleGenerate}
-                    disabled={loading}
-                    className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-800 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-blue-500/20 mt-4"
-                  >
-                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Access Secret Insights <ChevronRight className="w-5 h-5" /></>}
-                  </button>
+                  <div className="flex flex-col gap-4">
+                    {session ? (
+                      <div className="flex flex-col gap-3">
+                        <button
+                          onClick={handleGenerate}
+                          disabled={loading || links.every(l => !l.trim())}
+                          className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-800 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-blue-500/20"
+                        >
+                          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Access Secret Insights <ChevronRight className="w-5 h-5" /></>}
+                        </button>
+                        <button
+                          onClick={() => setView('dashboard')}
+                          className="w-full bg-white/5 hover:bg-white/10 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all border border-white/10"
+                        >
+                          <Eye className="w-4 h-4" /> Go to Dashboard
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setAuthMode('signup')}
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-5 rounded-[20px] font-bold text-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg shadow-blue-500/20"
+                      >
+                        Start Monitoring Free <ChevronRight className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <motion.div

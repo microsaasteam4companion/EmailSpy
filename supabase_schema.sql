@@ -74,6 +74,7 @@ DROP POLICY IF EXISTS "Cloudflare can insert emails" ON public.received_emails;
 CREATE POLICY "Users can view their own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Users can insert their own competitors" ON public.competitors FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can view their own competitors" ON public.competitors FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Worker can find competitors" ON public.competitors FOR SELECT USING (true);
 CREATE POLICY "Users can view emails for their competitors" ON public.received_emails FOR SELECT 
   USING (EXISTS (SELECT 1 FROM public.competitors WHERE id = competitor_id AND user_id = auth.uid()));
 CREATE POLICY "Users can view their own reports" ON public.reports FOR SELECT USING (auth.uid() = user_id);

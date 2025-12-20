@@ -31,7 +31,7 @@ export default {
         const { spy_email, from_address, subject, body_text, body_html } = data;
 
         // 1. Get Competitor ID from spy_email
-        const compResponse = await fetch(`${env.SUPABASE_URL}/rest/v1/competitors?spy_email=eq.${spy_email}&select=id`, {
+        const compResponse = await fetch(`${env.SUPABASE_URL}/rest/v1/competitors?spy_email=eq.${encodeURIComponent(spy_email)}&select=id`, {
             headers: {
                 "apikey": env.SUPABASE_ANON_KEY,
                 "Authorization": `Bearer ${env.SUPABASE_ANON_KEY}`
@@ -40,8 +40,7 @@ export default {
         const competitors = await compResponse.json();
 
         if (!competitors || competitors.length === 0) {
-            console.error("Competitor not found for email:", spy_email);
-            return;
+            return new Response(JSON.stringify({ error: "Competitor not found", email: spy_email }), { status: 404, headers: { "Content-Type": "application/json" } });
         }
 
         const competitor_id = competitors[0].id;
@@ -60,13 +59,16 @@ export default {
                 from_address,
                 subject,
                 body_text,
-                body_html,
+                body_html: body_html || "",
                 received_at: new Date().toISOString()
             })
         });
 
         if (!insertResponse.ok) {
-            console.error("Failed to insert email:", await insertResponse.text());
+            const errText = await insertResponse.text();
+            return new Response(JSON.stringify({ error: "Insert failed", details: errText }), { status: 500, headers: { "Content-Type": "application/json" } });
         }
+
+        return new Response(JSON.stringify({ success: true, competitor_id }), { status: 200, headers: { "Content-Type": "application/json" } });
     }
 }

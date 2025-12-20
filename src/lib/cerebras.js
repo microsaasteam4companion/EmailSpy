@@ -19,14 +19,18 @@ export const analyzeEmails = async (emails, mode = 'general') => {
     }
 
     try {
+        if (!CEREBRAS_API_KEY || CEREBRAS_API_KEY === 'PLACEHOLDER') {
+            return "Error: Cerebras API Key is missing. Please check your .env file.";
+        }
+
         const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${CEREBRAS_API_KEY}`
+                'Authorization': `Bearer ${CEREBRAS_API_KEY.trim()}`
             },
             body: JSON.stringify({
-                model: 'llama3.3-70b',
+                model: 'llama-3.3-70b',
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: `Analyze these emails:\n\n${emailContent}` }
@@ -35,10 +39,23 @@ export const analyzeEmails = async (emails, mode = 'general') => {
             })
         });
 
+        if (!response.ok) {
+            let errorMsg = response.statusText;
+            try {
+                const errData = await response.json();
+                errorMsg = errData.error?.message || JSON.stringify(errData);
+            } catch (e) {
+                const text = await response.text();
+                errorMsg = text.substring(0, 100) || response.statusText;
+            }
+            console.error("Cerebras API Error:", errorMsg);
+            return `Analysis Failed: ${errorMsg} (Status: ${response.status})`;
+        }
+
         const data = await response.json();
-        return data.choices[0].message.content;
+        return data.choices?.[0]?.message?.content || "No analysis generated.";
     } catch (error) {
         console.error("Cerebras analysis failed:", error);
-        return null;
+        return "Network error: Failed to connect to Cerebras AI. Check your internet or API limits.";
     }
 };
