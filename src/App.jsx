@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Eye, Mail, Lock, Zap, ChevronRight, BarChart3, ShieldCheck, Copy, Check, Loader2, RefreshCcw, Sparkles, Share2, Shield, UserX, FileText } from 'lucide-react';
+import { Eye, Mail, Lock, Zap, ChevronRight, BarChart3, ShieldCheck, Copy, Check, Loader2, RefreshCcw, Sparkles, Share2, Shield, UserX, FileText, Trash2, X } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { analyzeEmails } from './lib/cerebras';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
@@ -39,6 +39,102 @@ const LandingPage = () => {
     document.addEventListener('mouseleave', handleMouseLeave);
     return () => document.removeEventListener('mouseleave', handleMouseLeave);
   }, [hasShownExit, view]);
+
+  const [timeLeft, setTimeLeft] = useState(900); // 15 mins
+  React.useEffect(() => {
+    let interval;
+    if (showExitIntent && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [showExitIntent, timeLeft]);
+
+  const handleDeleteCompetitor = async (id) => {
+    if (!confirm("Are you sure? All ingested emails for this competitor will also be deleted.")) return;
+
+    const { error } = await supabase.from('competitors').delete().eq('id', id);
+    if (error) {
+      alert("Error deleting competitor");
+    } else {
+      setCompetitors(prev => prev.filter(c => c.id !== id));
+      if (selectedComp === id) setSelectedComp('all');
+    }
+  };
+
+  const PricingPage = () => (
+    <div className="min-h-screen bg-black text-white p-8 font-sans selection:bg-blue-500/30">
+      <div className="max-w-6xl mx-auto">
+        <header className="flex justify-between items-center mb-16">
+          <div className="flex items-center gap-2 font-bold text-xl tracking-tighter cursor-pointer" onClick={() => setView('landing')}>
+            <Eye className="text-blue-500 w-6 h-6" />
+            <span>Email<span className="text-blue-500">Spy</span></span>
+          </div>
+          <button onClick={() => setView('landing')} className="text-gray-400 hover:text-white text-sm">Close</button>
+        </header>
+
+        <div className="text-center mb-16">
+          <h1 className="text-4xl lg:text-5xl font-bold mb-6">Upgrade your Intelligence</h1>
+          <p className="text-gray-400 max-w-xl mx-auto">Stop guessing. Start knowing. Unlock the full power of EmailSpy.</p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Free Plan */}
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col hover:border-white/20 transition-all">
+            <div className="mb-4">
+              <h3 className="text-lg font-bold">Free Spy</h3>
+              <p className="text-gray-500 text-xs">Test the basic engine.</p>
+            </div>
+            <div className="text-2xl font-bold mb-6">
+              $0 <span className="text-xs text-gray-500 font-normal">/forever</span>
+            </div>
+            <ul className="space-y-3 mb-8 flex-grow">
+              <li className="flex items-center gap-2 text-xs text-gray-400"><Check className="w-3 h-3 text-green-500" /> 5 Competitors Tracked</li>
+              <li className="flex items-center gap-2 text-xs text-gray-400"><Check className="w-3 h-3 text-green-500" /> Basic Email Ingestion</li>
+              <li className="flex items-center gap-2 text-xs text-gray-500"><X className="w-3 h-3" /> No AI Analysis</li>
+            </ul>
+            <button onClick={() => setView('landing')} className="w-full bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl font-bold text-xs transition-all">Continue with Free</button>
+          </div>
+
+          {/* Starter Plan */}
+          <div className="bg-white/5 border border-blue-500/20 rounded-3xl p-6 flex flex-col hover:border-blue-500/40 transition-all transform scale-105 shadow-xl shadow-blue-500/5 relative">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">Best Value</div>
+            <div className="mb-4">
+              <h3 className="text-lg font-bold">Spy Starter</h3>
+              <p className="text-gray-400 text-xs">For solo founders & small teams.</p>
+            </div>
+            <div className="text-2xl font-bold mb-6">
+              $29 <span className="text-xs text-gray-500 font-normal">/month</span>
+            </div>
+            <ul className="space-y-3 mb-8 flex-grow">
+              <li className="flex items-center gap-2 text-xs text-gray-300"><Check className="w-3 h-3 text-blue-500" /> 30 Competitors Tracked</li>
+              <li className="flex items-center gap-2 text-xs text-gray-300"><Check className="w-3 h-3 text-blue-500" /> Weekly Basic Reports</li>
+              <li className="flex items-center gap-2 text-xs text-gray-300"><Check className="w-3 h-3 text-blue-500" /> Cloud Backup</li>
+            </ul>
+            <button onClick={() => alert("Redirecting to Stripe: Spy Starter ($29)")} className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-xl font-bold text-xs transition-all shadow-lg shadow-blue-500/20">Start Basic Spying</button>
+          </div>
+
+          {/* Pro Plan */}
+          <div className="bg-gradient-to-br from-blue-900/20 to-black border border-blue-500/50 rounded-3xl p-6 flex flex-col">
+            <div className="mb-4">
+              <h3 className="text-lg font-bold text-blue-400">Spy Professional</h3>
+              <p className="text-gray-500 text-xs">For growth marketers who need results.</p>
+            </div>
+            <div className="text-2xl font-bold mb-6">
+              $49 <span className="text-xs text-gray-500 font-normal">/month</span>
+            </div>
+            <ul className="space-y-3 mb-8 flex-grow">
+              <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-blue-400" /> Track Unlimited Competitors</li>
+              <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-blue-400" /> Llama 3.3 AI Strategy</li>
+              <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-blue-400" /> Real-time Alert Sync</li>
+            </ul>
+            <button onClick={() => alert("Redirecting to Stripe: Spy Professional ($49)")} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold text-xs transition-all">Go Unlimited</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   React.useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -186,6 +282,18 @@ const LandingPage = () => {
     const validLinks = links.filter(link => link.trim() !== '');
     if (validLinks.length === 0) return;
 
+    // FREEMIUM LIMIT CHECK
+    const { count } = await supabase
+      .from('competitors')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', session.user.id);
+
+    if (count >= 30) { // Free/Starter Plan Limit = 30
+      alert("🚨 Plan Limit Reached!\n\nYou can only track 30 competitors on this plan.\nUpgrade to Spy Professional for unlimited tracking.");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const results = validLinks.map(link => ({
@@ -249,7 +357,11 @@ const LandingPage = () => {
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.6 }
   };
+
+
   const renderContent = () => {
+    if (view === 'pricing') return <PricingPage />;
+
     if (authMode === 'login' || authMode === 'signup') {
       return (
         <div className="min-h-screen bg-black text-white flex items-center justify-center p-6 selection:bg-blue-500/30 font-sans relative">
@@ -369,6 +481,15 @@ const LandingPage = () => {
                         <option key={comp.id} value={comp.id}>{comp.name}</option>
                       ))}
                     </select>
+                    {selectedComp !== 'all' && (
+                      <button
+                        onClick={() => handleDeleteCompetitor(selectedComp)}
+                        className="p-2 hover:bg-red-500/10 rounded-full text-gray-400 hover:text-red-500 border border-white/5 hover:border-red-500/20 transition-all mr-2"
+                        title="Delete Competitor"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={handleRefresh}
                       disabled={refreshing}
@@ -593,11 +714,12 @@ const LandingPage = () => {
 
             {/* Action Box */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
               className="max-w-2xl mx-auto bg-white/5 border border-white/10 rounded-3xl shadow-2xl shadow-blue-500/10 overflow-hidden"
             >
+
               {!generatedEmails ? (
                 <div className="space-y-4 p-8">
                   <p className="text-left text-sm font-medium text-gray-400 ml-2 font-semibold">Monitor Competitors Instantly</p>
@@ -767,47 +889,63 @@ const LandingPage = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                {/* Basic Plan */}
-                <div className="bg-white/5 border border-white/10 rounded-[40px] p-10 flex flex-col hover:border-blue-500/20 transition-all">
-                  <h3 className="text-xl font-bold mb-2">Spy Starter</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                {/* Free Plan */}
+                <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 flex flex-col hover:border-white/20 transition-all">
+                  <h3 className="text-xl font-bold mb-2">Free Spy</h3>
                   <div className="flex items-baseline gap-1 mb-6">
-                    <span className="text-4xl font-black">$29</span>
-                    <span className="text-gray-500 text-sm">/month</span>
+                    <span className="text-3xl font-black">$0</span>
+                    <span className="text-gray-500 text-sm">/forever</span>
                   </div>
-                  <ul className="space-y-4 mb-10 flex-grow">
-                    <li className="flex items-center gap-3 text-sm text-gray-400"><Check className="w-4 h-4 text-blue-500" /> Track 2 Competitors</li>
-                    <li className="flex items-center gap-3 text-sm text-gray-400"><Check className="w-4 h-4 text-blue-500" /> Weekly Basic Reports</li>
-                    <li className="flex items-center gap-3 text-sm text-gray-400"><Check className="w-4 h-4 text-blue-500" /> Email Ingestion</li>
-                    <li className="flex items-center gap-3 text-sm text-gray-400 opacity-30"><Check className="w-4 h-4 text-gray-600" /> Quarterly Trend Analysis</li>
+                  <ul className="space-y-3 mb-8 flex-grow">
+                    <li className="flex items-center gap-2 text-xs text-gray-400"><Check className="w-3 h-3 text-green-500" /> 5 Competitors Tracked</li>
+                    <li className="flex items-center gap-2 text-xs text-gray-400"><Check className="w-3 h-3 text-green-500" /> Basic Email Ingestion</li>
+                    <li className="flex items-center gap-2 text-xs text-gray-500"><X className="w-3 h-3" /> No AI Analysis</li>
                   </ul>
                   <button
-                    onClick={() => alert("Checkout: Spy Starter ($29/mo)")}
-                    className="w-full bg-white/10 hover:bg-white/20 text-white py-4 rounded-2xl font-bold transition-all"
+                    onClick={() => setView('dashboard')}
+                    className="w-full bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl font-bold text-xs transition-all"
+                  >
+                    Start Free
+                  </button>
+                </div>
+
+                {/* Starter Plan */}
+                <div className="bg-white/5 border border-blue-500/20 rounded-[32px] p-8 flex flex-col hover:border-blue-500/40 transition-all transform scale-105 shadow-xl shadow-blue-500/10 relative">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">Most Popular</div>
+                  <h3 className="text-xl font-bold mb-2">Spy Starter</h3>
+                  <div className="flex items-baseline gap-1 mb-6">
+                    <span className="text-3xl font-black">$29</span>
+                    <span className="text-gray-500 text-sm">/month</span>
+                  </div>
+                  <ul className="space-y-3 mb-8 flex-grow">
+                    <li className="flex items-center gap-2 text-xs text-gray-300"><Check className="w-3 h-3 text-blue-500" /> 30 Competitors Tracked</li>
+                    <li className="flex items-center gap-2 text-xs text-gray-300"><Check className="w-3 h-3 text-blue-500" /> Weekly Basic Reports</li>
+                    <li className="flex items-center gap-2 text-xs text-gray-300"><Check className="w-3 h-3 text-blue-500" /> Email Ingestion</li>
+                  </ul>
+                  <button
+                    onClick={() => setView('pricing')}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20"
                   >
                     Start Basic Spying
                   </button>
                 </div>
 
                 {/* Pro Plan */}
-                <div className="bg-blue-600/10 border border-blue-500/40 rounded-[40px] p-10 flex flex-col relative overflow-hidden shadow-2xl shadow-blue-500/10">
-                  <div className="absolute top-0 right-0 p-4">
-                    <span className="bg-blue-500 text-[10px] font-bold px-2 py-0.5 rounded text-white uppercase tracking-wider">Most Popular</span>
-                  </div>
+                <div className="bg-blue-600/5 border border-blue-500/40 rounded-[32px] p-8 flex flex-col relative overflow-hidden">
                   <h3 className="text-xl font-bold mb-2">Spy Professional</h3>
                   <div className="flex items-baseline gap-1 mb-6">
-                    <span className="text-4xl lg:text-5xl font-black text-blue-400">$49</span>
+                    <span className="text-3xl font-black text-blue-400">$49</span>
                     <span className="text-gray-500 text-sm">/month</span>
                   </div>
-                  <ul className="space-y-4 mb-10 flex-grow">
-                    <li className="flex items-center gap-3 text-sm text-gray-200"><ShieldCheck className="w-4 h-4 text-blue-400" /> Track Unlimited Competitors</li>
-                    <li className="flex items-center gap-3 text-sm text-gray-200"><ShieldCheck className="w-4 h-4 text-blue-400" /> Quarterly Trend AI</li>
-                    <li className="flex items-center gap-3 text-sm text-gray-200"><ShieldCheck className="w-4 h-4 text-blue-400" /> Real-time Alert Sync</li>
-                    <li className="flex items-center gap-3 text-sm text-gray-200"><ShieldCheck className="w-4 h-4 text-blue-400" /> Benchmarking Advisor</li>
+                  <ul className="space-y-3 mb-8 flex-grow">
+                    <li className="flex items-center gap-2 text-xs text-gray-200"><Check className="w-3 h-3 text-blue-400" /> Unlimited Competitors</li>
+                    <li className="flex items-center gap-2 text-xs text-gray-200"><Check className="w-3 h-3 text-blue-400" /> AI Strategy Reports</li>
+                    <li className="flex items-center gap-2 text-xs text-gray-200"><Check className="w-3 h-3 text-blue-400" /> Real-time Alert Sync</li>
                   </ul>
                   <button
-                    onClick={() => alert("Checkout: Spy Pro ($49/mo)")}
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-2xl font-bold transition-all shadow-xl shadow-blue-500/20"
+                    onClick={() => setView('pricing')}
+                    className="w-full border border-blue-500/20 hover:bg-blue-600/10 text-white py-3 rounded-xl font-bold text-xs transition-all"
                   >
                     Go Unlimited
                   </button>
@@ -824,7 +962,7 @@ const LandingPage = () => {
           <footer className="py-12 border-t border-white/5 text-center">
             <p className="text-gray-500 text-sm selection:bg-none">© 2025 EmailSpy. All secrets reserved.</p>
           </footer>
-        </div>
+        </div >
       );
     }
     return null; // Fallback if view is neither 'dashboard' nor 'landing'
@@ -884,12 +1022,12 @@ const LandingPage = () => {
             <p className="text-xl text-gray-300 mb-8 leading-relaxed">Get a <span className="text-blue-400 font-bold">20% Special Discount</span> for your first 3 months. Don't let your competitors win.</p>
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-10 flex items-center justify-center gap-4">
               <div className="text-center">
-                <p className="text-2xl font-black text-white">09</p>
+                <p className="text-2xl font-black text-white">{Math.floor(timeLeft / 60).toString().padStart(2, '0')}</p>
                 <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Mins</p>
               </div>
               <p className="text-2xl font-black opacity-20">:</p>
               <div className="text-center">
-                <p className="text-2xl font-black text-white">45</p>
+                <p className="text-2xl font-black text-white">{(timeLeft % 60).toString().padStart(2, '0')}</p>
                 <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Secs</p>
               </div>
             </div>
@@ -897,6 +1035,7 @@ const LandingPage = () => {
               onClick={() => {
                 setShowExitIntent(false);
                 setAuthMode('signup');
+                alert("Discount Code 'SPY20' applied! Create your account to lock it in.");
               }}
               className="w-full bg-blue-500 hover:bg-blue-600 text-white py-5 rounded-2xl font-bold text-lg shadow-xl shadow-blue-500/30 transition-all active:scale-95"
             >

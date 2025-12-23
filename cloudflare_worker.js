@@ -5,16 +5,28 @@
 
 export default {
     async email(message, env, ctx) {
-        // Use PostalMime to extract full text/html body
-        const { default: PostalMime } = await import("postal-mime");
-        const parsed = await PostalMime.parse(message.raw);
+        // Simple internal parsing to avoid 'postal-mime' dependency errors in Dashboard
+        const raw = await new Response(message.raw).text();
+
+        let subject = "No Subject";
+        try {
+            const subjectMatch = raw.match(/^Subject: (.+)$/m);
+            if (subjectMatch) subject = subjectMatch[1];
+        } catch (e) { }
+
+        let body_text = "Content parsing failed";
+        try {
+            // Basic body extraction (splits headers from body)
+            const parts = raw.split(/\r\n\r\n|\n\n/);
+            if (parts.length > 1) body_text = parts.slice(1).join("\n\n").substring(0, 2000);
+        } catch (e) { }
 
         return this.handleIngestion({
             spy_email: message.to,
             from_address: message.from,
-            subject: parsed.subject || "No Subject",
-            body_text: parsed.text || "No text content found",
-            body_html: parsed.html || ""
+            subject: subject,
+            body_text: body_text,
+            body_html: ""
         }, env);
     },
 
